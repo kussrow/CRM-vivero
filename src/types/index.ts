@@ -95,6 +95,12 @@ export interface Lead {
   next_action?: string;
   next_action_date?: string;
   notes?: string;
+  condicion_pago?: string;
+  cuit?: string;
+  razon_social?: string;
+  tipo_factura?: string;
+  direccion_facturacion?: string;
+  selected_product_ids?: string[];
   created_at?: string;
   updated_at?: string;
 }

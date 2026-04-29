@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { mockLeads, mockStages, mockUsers } from '../data/mockData';
-import { fetchProducts } from '../lib/api';
+import { mockStages, mockUsers } from '../data/mockData';
+import { fetchProducts, fetchLeads, createLead } from '../lib/api';
 import type { Product } from '../lib/api';
-import { Search, Plus, Filter, ArrowUpDown, Eye, Edit2, Trash2, MoreVertical, Check } from 'lucide-react';
+import { Search, Plus, Filter, ArrowUpDown, Eye, Edit2, Trash2, MoreVertical, Check, Loader2 } from 'lucide-react';
 import Badge from '../components/ui/Badge';
 import Modal from '../components/ui/Modal';
 import type { Lead } from '../types';
+import { useAuthStore } from '../store/authStore';
 
 const stageVariant = (stageId: string): 'default' | 'success' | 'warning' | 'danger' | 'info' => {
   const map: Record<string, 'default' | 'success' | 'warning' | 'danger' | 'info'> = {
@@ -15,6 +16,9 @@ const stageVariant = (stageId: string): 'default' | 'success' | 'warning' | 'dan
 };
 
 export default function Leads() {
+  const { user } = useAuthStore();
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -24,16 +28,77 @@ export default function Leads() {
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const estimatedTotal = products
     .filter(p => selectedProductIds.includes(p.id))
     .reduce((sum, p) => sum + p.price, 0);
 
   useEffect(() => {
-    fetchProducts().then(setProducts);
+    loadData();
   }, []);
 
-  const filteredLeads = mockLeads.filter(lead => {
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [prods, lds] = await Promise.all([fetchProducts(), fetchLeads()]);
+      setProducts(prods);
+      setLeads(lds);
+    } catch (error) {
+      console.error("Error loading data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateLead = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!user) return;
+    
+    setIsSubmitting(true);
+    const formData = new FormData(e.currentTarget);
+    
+    const newLeadData = {
+      first_name: formData.get('first_name') as string,
+      last_name: formData.get('last_name') as string,
+      city: formData.get('city') as string,
+      phone: formData.get('phone') as string,
+      email: formData.get('email') as string,
+      source: formData.get('source') as string,
+      condicion_pago: formData.get('condicion_pago') as string,
+      cuit: formData.get('cuit') as string,
+      tipo_factura: formData.get('tipo_factura') as string,
+      razon_social: formData.get('razon_social') as string,
+      direccion_facturacion: formData.get('direccion_facturacion') as string,
+      notes: formData.get('notes') as string,
+      estimated_amount: estimatedTotal,
+      pipeline_stage_id: 's1', // Default to first stage
+      assigned_user_id: user.id,
+      status: 'active',
+      product_interest: products
+        .filter(p => selectedProductIds.includes(p.id))
+        .map(p => p.name)
+        .join(', '),
+      selected_product_ids: selectedProductIds
+    };
+
+    try {
+      const created = await createLead(newLeadData);
+      if (created) {
+        setLeads([created, ...leads]);
+        setShowCreateModal(false);
+        setSelectedProductIds([]);
+        alert('Lead creado con éxito');
+      }
+    } catch (error: any) {
+      console.error("Error creating lead:", error);
+      alert('Error al crear el lead: ' + (error.message || 'Error desconocido'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const filteredLeads = leads.filter(lead => {
     const matchSearch = lead.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       lead.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       lead.lead_code.toLowerCase().includes(searchTerm.toLowerCase());
@@ -44,6 +109,14 @@ export default function Leads() {
   const fmtCurrency = (n: number) => new Intl.NumberFormat('es-AR', { 
     style: 'currency', currency: 'ARS', maximumFractionDigits: 0 
   }).format(n);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -192,7 +265,7 @@ export default function Leads() {
 
       {/* Create Lead Modal */}
       <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Nuevo Lead" size="xl">
-        <form className="space-y-8" onSubmit={(e) => { e.preventDefault(); setShowCreateModal(false); }}>
+        <form className="space-y-8" onSubmit={handleCreateLead}>
           
           {/* SECCIÓN: DATOS PERSONALES */}
           <div className="space-y-4">
@@ -203,23 +276,23 @@ export default function Leads() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Nombre *</label>
-                <input type="text" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm" placeholder="Juan" required />
+                <input name="first_name" type="text" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm" placeholder="Juan" required />
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Apellido</label>
-                <input type="text" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm" placeholder="Pérez" />
+                <input name="last_name" type="text" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm" placeholder="Pérez" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Localidad *</label>
-                <input type="text" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm" placeholder="CABA" required />
+                <input name="city" type="text" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm" placeholder="CABA" required />
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Teléfono *</label>
-                <input type="tel" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm" placeholder="1122334455" required />
+                <input name="phone" type="tel" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm" placeholder="1122334455" required />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Email</label>
-                <input type="email" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm" placeholder="juan@email.com" />
+                <input name="email" type="email" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm" placeholder="juan@email.com" />
               </div>
             </div>
           </div>
@@ -257,13 +330,14 @@ export default function Leads() {
                         </div>
                       </label>
                     ))}
+                    {products.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No hay productos disponibles</p>}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Origen</label>
-                    <select className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm">
+                    <select name="source" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm">
                       <option value="WhatsApp">WhatsApp</option>
                       <option value="Instagram">Instagram</option>
                       <option value="Web">Web</option>
@@ -288,7 +362,7 @@ export default function Leads() {
 
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Nota</label>
-                  <textarea className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm resize-none" rows={2} placeholder="Notas adicionales..." />
+                  <textarea name="notes" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm resize-none" rows={2} placeholder="Notas adicionales..." />
                 </div>
               </div>
 
@@ -296,7 +370,7 @@ export default function Leads() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
                     <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Condición de Pago</label>
-                    <select className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm">
+                    <select name="condicion_pago" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm">
                       <option value="Contado">Contado</option>
                       <option value="Transferencia">Transferencia</option>
                       <option value="Cheque">Cheque</option>
@@ -306,11 +380,11 @@ export default function Leads() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">CUIT</label>
-                    <input type="text" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm" placeholder="20-12345678-9" />
+                    <input name="cuit" type="text" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm" placeholder="20-12345678-9" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Tipo Factura</label>
-                    <select className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm">
+                    <select name="tipo_factura" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm">
                       <option value="A">Factura A</option>
                       <option value="B">Factura B</option>
                       <option value="C">Factura C</option>
@@ -320,11 +394,11 @@ export default function Leads() {
                   </div>
                   <div className="col-span-2">
                     <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Razón Social</label>
-                    <input type="text" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm" placeholder="Empresa S.A." />
+                    <input name="razon_social" type="text" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm" placeholder="Empresa S.A." />
                   </div>
                   <div className="col-span-2">
                     <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Dirección de Facturación</label>
-                    <input type="text" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm" placeholder="Av. Siempre Viva 123" />
+                    <input name="direccion_facturacion" type="text" className="w-full px-3 py-2.5 border border-input rounded-lg bg-background focus:ring-2 focus:ring-primary/30 outline-none text-sm" placeholder="Av. Siempre Viva 123" />
                   </div>
                 </div>
               </div>
@@ -335,8 +409,12 @@ export default function Leads() {
             <button type="button" onClick={() => setShowCreateModal(false)} className="px-6 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-accent transition-colors">
               Cancelar
             </button>
-            <button type="submit" className="px-8 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg text-sm shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500 transition-all">
-              Crear Lead
+            <button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="px-8 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg text-sm shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500 transition-all flex items-center justify-center min-w-[140px]"
+            >
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Crear Lead'}
             </button>
           </div>
         </form>

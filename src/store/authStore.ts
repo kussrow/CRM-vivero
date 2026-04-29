@@ -15,8 +15,13 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null, // Comienza deslogueado para probar el login
-  isAuthenticated: false,
+  user: {
+    id: 'u2',
+    full_name: 'Santiago Vendedor',
+    email: 'santiago@crm.com',
+    role: 'seller'
+  },
+  isAuthenticated: true,
   login: (user) => set({ user, isAuthenticated: true }),
   logout: () => set({ user: null, isAuthenticated: false }),
 }));
