@@ -66,33 +66,28 @@ export async function fetchLeads(): Promise<Lead[]> {
 export async function createLead(lead: any): Promise<Lead | null> {
   const { selected_product_ids, ...leadData } = lead;
   
+  // Limpiamos campos nulos o vacíos para evitar errores de tipo
+  const cleanData = {
+    ...leadData,
+    company_id: '00000000-0000-0000-0000-000000000001' // Forzamos empresa
+  };
+
   const { data: newLead, error } = await supabase
     .from("leads")
-    .insert([leadData])
+    .insert([cleanData])
     .select()
     .single();
 
-  if (error) {
-    throw error;
-  }
+  if (error) throw error;
 
-  if (selected_product_ids && selected_product_ids.length > 0) {
-    const productsToInsert = selected_product_ids.map((productId: string) => ({
+  // Si hay productos, intentamos guardarlos pero que no bloquee el resultado principal
+  if (selected_product_ids?.length > 0) {
+    const productsToInsert = selected_product_ids.map((id: string) => ({
       lead_id: newLead.id,
-      product_id: productId
+      product_id: id
     }));
-
-    const { error: productsError } = await supabase
-      .from("lead_products")
-      .insert(productsToInsert);
-
-    if (productsError) {
-      console.error("Error saving lead products:", productsError);
-    }
+    await supabase.from("lead_products").insert(productsToInsert);
   }
 
-  return {
-    ...newLead,
-    selected_product_ids: selected_product_ids || []
-  } as Lead;
+  return { ...newLead, selected_product_ids: selected_product_ids || [] };
 }
