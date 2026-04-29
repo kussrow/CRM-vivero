@@ -432,7 +432,7 @@ export default function Leads() {
               disabled={isSubmitting}
               className="px-8 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg text-sm shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500 transition-all flex items-center justify-center min-w-[140px]"
             >
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Crear Lead'}
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'CREAR NUEVO LEAD (V2)'}
             </button>
           </div>
         </form>
