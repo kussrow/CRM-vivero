@@ -52,13 +52,19 @@ export default function Leads() {
     }
   };
 
-  const handleCreateLead = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleCreateLead = async (e: any) => {
+    if (e && e.preventDefault) e.preventDefault();
     window.alert('DEBUG: Iniciando guardado...');
+    
+    const form = document.querySelector('form'); // Buscamos el formulario
+    if (!form) {
+      window.alert('ERROR: No se encontró el formulario');
+      return;
+    }
+    
     setIsSubmitting(true);
     setFormError(null);
-    
-    const formData = new FormData(e.currentTarget);
+    const formData = new FormData(form);
     
     const newLeadData = {
       first_name: formData.get('first_name') as string,
@@ -421,7 +427,8 @@ export default function Leads() {
               Cancelar
             </button>
             <button 
-              type="submit" 
+              type="button"
+              onClick={handleCreateLead}
               disabled={isSubmitting}
               className="px-8 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg text-sm shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500 transition-all flex items-center justify-center min-w-[140px]"
             >
