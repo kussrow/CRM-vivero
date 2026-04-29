@@ -73,8 +73,7 @@ export async function createLead(lead: any): Promise<Lead | null> {
     .single();
 
   if (error) {
-    console.error("Error creating lead:", error);
-    return null;
+    throw error;
   }
 
   if (selected_product_ids && selected_product_ids.length > 0) {
