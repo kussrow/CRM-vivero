@@ -29,6 +29,7 @@ export default function Leads() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const estimatedTotal = products
     .filter(p => selectedProductIds.includes(p.id))
@@ -82,6 +83,7 @@ export default function Leads() {
       selected_product_ids: selectedProductIds
     };
 
+    setFormError(null);
     try {
       const created = await createLead(newLeadData);
       if (created) {
@@ -92,7 +94,9 @@ export default function Leads() {
       }
     } catch (error: any) {
       console.error("Error creating lead:", error);
-      alert('Error al crear el lead: ' + (error.message || 'Error desconocido'));
+      const msg = error.message || 'Error desconocido';
+      setFormError(msg);
+      alert('Error al crear el lead: ' + msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -267,6 +271,12 @@ export default function Leads() {
       <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Nuevo Lead" size="xl">
         <form className="space-y-8" onSubmit={handleCreateLead}>
           
+          {formError && (
+            <div className="p-4 bg-red-500/10 border border-red-500/50 rounded-lg text-red-500 text-sm">
+              {formError}
+            </div>
+          )}
+
           {/* SECCIÓN: DATOS PERSONALES */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-border">
