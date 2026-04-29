@@ -54,9 +54,9 @@ export default function Leads() {
 
   const handleCreateLead = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!user) return;
-    
     setIsSubmitting(true);
+    setFormError(null);
+    
     const formData = new FormData(e.currentTarget);
     
     const newLeadData = {
@@ -74,7 +74,7 @@ export default function Leads() {
       notes: formData.get('notes') as string,
       estimated_amount: estimatedTotal,
       pipeline_stage_id: '22222222-2222-2222-2222-222222222221', // Nuevo contacto UUID
-      assigned_user_id: user.id,
+      assigned_user_id: user?.id || '11111111-1111-1111-1111-111111111111',
       status: 'active',
       product_interest: products
         .filter(p => selectedProductIds.includes(p.id))
