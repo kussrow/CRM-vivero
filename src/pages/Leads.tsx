@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { mockStages, mockUsers } from '../data/mockData';
-import { fetchProducts, fetchLeads, createLead } from '../lib/api';
+import { fetchProducts, fetchLeads, createLead, deleteLead } from '../lib/api';
 import type { Product } from '../lib/api';
-import { Search, Plus, Filter, ArrowUpDown, Eye, Edit2, Trash2, MoreVertical, Check, Loader2 } from 'lucide-react';
+import { Search, Plus, Filter, ArrowUpDown, Eye, Edit2, Trash2, MoreVertical, Check, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import Badge from '../components/ui/Badge';
 import Modal from '../components/ui/Modal';
 import type { Lead } from '../types';
@@ -26,6 +26,8 @@ export default function Leads() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,19 +54,25 @@ export default function Leads() {
     }
   };
 
-  const handleCreateLead = async (e: any) => {
-    if (e && e.preventDefault) e.preventDefault();
-    window.alert('DEBUG: Iniciando guardado...');
+  const handleDeleteLead = async (id: string) => {
+    if (!window.confirm('¿Estás seguro de que deseas eliminar este lead? Esta acción no se puede deshacer.')) return;
     
-    const form = document.querySelector('form'); // Buscamos el formulario
-    if (!form) {
-      window.alert('ERROR: No se encontró el formulario');
-      return;
+    try {
+      await deleteLead(id);
+      setLeads(leads.filter(l => l.id !== id));
+      setActiveMenuId(null);
+    } catch (error) {
+      console.error("Error deleting lead:", error);
+      alert('Error al eliminar el lead');
     }
+  };
+
+  const handleCreateLead = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     
     setIsSubmitting(true);
     setFormError(null);
-    const formData = new FormData(form);
+    const formData = new FormData(e.currentTarget);
     
     const newLeadData = {
       first_name: formData.get('first_name') as string,
@@ -97,7 +105,9 @@ export default function Leads() {
         setLeads([created, ...leads]);
         setShowCreateModal(false);
         setSelectedProductIds([]);
-        alert('Lead creado con éxito');
+        setShowCreateModal(false);
+        setSelectedProductIds([]);
+        // Success notification handled by state or toast
       }
     } catch (error: any) {
       console.error("Error creating lead:", error);
@@ -190,7 +200,7 @@ export default function Leads() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filteredLeads.map(lead => {
+              {paginatedLeads.map(lead => {
                 const stage = mockStages.find(s => s.id === lead.pipeline_stage_id);
                 const seller = mockUsers.find(u => u.id === lead.assigned_user_id);
                 
@@ -249,7 +259,7 @@ export default function Leads() {
                               </button>
                               <div className="h-px bg-border my-1"></div>
                               <button 
-                                onClick={() => { if(confirm('¿Seguro que deseas eliminar este lead?')) { setActiveMenuId(null); } }}
+                                onClick={() => handleDeleteLead(lead.id)}
                                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-red-500 hover:bg-red-500/10 transition-colors"
                               >
                                 <Trash2 className="h-4 w-4" /> Eliminar
@@ -272,6 +282,49 @@ export default function Leads() {
             </tbody>
           </table>
         </div>
+
+        {/* Paginación */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/10">
+            <p className="text-xs text-muted-foreground">
+              Mostrando <span className="font-medium text-foreground">{(currentPage - 1) * itemsPerPage + 1}</span> a <span className="font-medium text-foreground">{Math.min(currentPage * itemsPerPage, filteredLeads.length)}</span> de <span className="font-medium text-foreground">{filteredLeads.length}</span> leads
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="p-1.5 rounded-md border border-border bg-background text-muted-foreground hover:text-foreground hover:border-primary/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <div className="flex items-center gap-1">
+                {[...Array(totalPages)].map((_, i) => (
+                  <button
+                    key={i + 1}
+                    type="button"
+                    onClick={() => setCurrentPage(i + 1)}
+                    className={`w-8 h-8 flex items-center justify-center rounded-md text-xs font-medium transition-all ${
+                      currentPage === i + 1
+                        ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                        : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="p-1.5 rounded-md border border-border bg-background text-muted-foreground hover:text-foreground hover:border-primary/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Create Lead Modal */}
@@ -427,12 +480,16 @@ export default function Leads() {
               Cancelar
             </button>
             <button 
-              type="button"
-              onClick={handleCreateLead}
+              type="submit"
               disabled={isSubmitting}
-              className="px-8 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg text-sm shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500 transition-all flex items-center justify-center min-w-[140px]"
+              className="px-8 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl text-sm shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center min-w-[140px]"
             >
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'CREAR NUEVO LEAD (V2)'}
+              {isSubmitting ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Guardando...</span>
+                </div>
+              ) : 'Crear Lead'}
             </button>
           </div>
         </form>

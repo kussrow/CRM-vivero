@@ -91,3 +91,16 @@ export async function createLead(lead: any): Promise<Lead | null> {
 
   return { ...newLead, selected_product_ids: selected_product_ids || [] };
 }
+
+export async function deleteLead(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from("leads")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error deleting lead:", error);
+    throw error;
+  }
+  return true;
+}
