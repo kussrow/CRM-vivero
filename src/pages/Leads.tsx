@@ -54,6 +54,7 @@ export default function Leads() {
 
   const handleCreateLead = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    window.alert('DEBUG: Iniciando guardado...');
     setIsSubmitting(true);
     setFormError(null);
     
