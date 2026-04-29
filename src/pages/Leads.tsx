@@ -72,7 +72,7 @@ export default function Leads() {
       direccion_facturacion: formData.get('direccion_facturacion') as string,
       notes: formData.get('notes') as string,
       estimated_amount: estimatedTotal,
-      pipeline_stage_id: 's1', // Default to first stage
+      pipeline_stage_id: '22222222-2222-2222-2222-222222222221', // Nuevo contacto UUID
       assigned_user_id: user.id,
       status: 'active',
       product_interest: products

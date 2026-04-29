@@ -16,7 +16,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: {
-    id: 'u2',
+    id: '11111111-1111-1111-1111-111111111111',
     full_name: 'Santiago Vendedor',
     email: 'santiago@crm.com',
     role: 'seller'
