@@ -131,6 +131,13 @@ export default function Leads() {
     style: 'currency', currency: 'ARS', maximumFractionDigits: 0 
   }).format(n);
 
+  // Paginación
+  const totalPages = Math.ceil(filteredLeads.length / itemsPerPage);
+  const paginatedLeads = filteredLeads.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
